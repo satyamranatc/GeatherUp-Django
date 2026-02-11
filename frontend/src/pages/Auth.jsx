@@ -26,7 +26,7 @@ export default function Auth({isLoggedIn,setIsLoggedIn}) {
 
     let res = await axios.post("http://localhost:8000/api/userApp/register",data)
 
-    if(res.data != null){
+    if(res.data.email != null){
       setIsLoggedIn(true)
       localStorage.setItem("isLoggedIn","true")
       localStorage.setItem("user",JSON.stringify(res.data))
@@ -46,7 +46,7 @@ export default function Auth({isLoggedIn,setIsLoggedIn}) {
 
     let res = await axios.post("http://localhost:8000/api/userApp/login",data)
 
-    if(res.data != null){
+    if(res.data.email != null){
       setIsLoggedIn(true)
       localStorage.setItem("isLoggedIn","true")
       localStorage.setItem("user",JSON.stringify(res.data))

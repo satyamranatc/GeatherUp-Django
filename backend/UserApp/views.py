@@ -25,11 +25,12 @@ def login(request):
         return Response({'error': 'Please provide both email and password.'})
     try:
         user = User.objects.get(email=email)
+        userData =  UserSerializer(user)
     except User.DoesNotExist:
         return Response({'error': 'User not found.'})
     if user.password != password:
         return Response({'error': 'Incorrect password.'})
-    return Response({'message': 'Login successful.'})
+    return Response(userData.data)
 
 
 

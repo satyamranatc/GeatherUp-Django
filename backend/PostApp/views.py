@@ -28,7 +28,9 @@ def allPosts(request):
 
 @api_view(['GET'])
 def postByUser(request,user_id):
-    pass
+    data = PostModel.objects.filter(uploadedBy=user_id)
+    serializer = PostViewSerializer(data, many=True)
+    return Response(serializer.data)
 
 
 
