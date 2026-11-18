@@ -8,7 +8,6 @@ import {
   Send,
   Share2,
   Image as ImageIcon,
-  Sparkles,
 } from 'lucide-react'
 import api, { formatRelativeTime, getApiError, getAvatarFallback } from '../api/client.js'
 
@@ -538,10 +537,7 @@ export default function Feed({ isLoggedIn, currentUser, showToast }) {
 
               {/* Inline Quick Post Composer */}
               <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
-                <div className="flex items-center gap-2 mb-3">
-                  <Sparkles className="w-4 h-4 text-[#008080]" />
-                  <h2 className="text-sm font-semibold text-slate-900">Quick Post</h2>
-                </div>
+                <h2 className="text-sm font-semibold text-slate-900 mb-3">Quick Post</h2>
                 <form onSubmit={handleQuickPost} className="space-y-2.5">
                   <input
                     type="text"
