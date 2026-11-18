@@ -1,58 +1,63 @@
-import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
+import React from 'react'
+import { Link, useLocation } from 'react-router-dom'
+import { Home, LogIn, User as UserIcon } from 'lucide-react'
+import { getAvatarFallback } from '../api/client.js'
 
-export default function NavBar({ isLoggedIn }) {
+export default function NavBar({ isLoggedIn, user }) {
+  const { pathname } = useLocation()
 
-  let [menuItems, setMenuItems] = useState([
-    {
-      name: "Feed",
-      path: "/",
-    },
-    {
-      name: "Profile",
-      path: "/profile",
-    },
-    {
-      name: "Auth",
-      path: "/auth",
-    }
-  ])
+  const navLinkClass = (active) =>
+    `inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+      active
+        ? 'bg-[#F3F6F6] text-[#006666]'
+        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+    }`
 
   return (
-    <nav className='border-b border-gray-300 bg-white'>
-      <div className='max-w-5xl mx-auto flex items-center justify-between px-4 py-3'>
-        <h2 className='text-2xl font-semibold text-black tracking-tight'>
-          Gather Up
-        </h2>
+    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
+      <div className="max-w-5xl mx-auto flex items-center justify-between px-4 py-3">
+        <Link to="/" className="flex items-center gap-2.5">
+          <span className="w-8 h-8 rounded-lg bg-[#008080] text-white flex items-center justify-center font-bold text-sm tracking-tight">
+            GU
+          </span>
+          <span className="text-lg font-semibold text-slate-900 tracking-tight">
+            GatherUp
+          </span>
+        </Link>
 
-        <ul className='flex gap-5 items-center'>
-          <li className='text-black hover:text-gray-600 transition'>
-            <Link to={"/"}>
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
+        <nav className="flex items-center gap-2">
+          <Link to="/" className={navLinkClass(pathname === '/')}>
+            <Home className="w-4 h-4" />
+            <span>Feed</span>
+          </Link>
+
+          {isLoggedIn ? (
+            <Link to="/profile" className={navLinkClass(pathname.startsWith('/profile'))}>
+              {user ? (
+                <img
+                  src={user.avatar || getAvatarFallback(user.fullName)}
+                  alt={user.fullName}
+                  onError={(e) => {
+                    e.currentTarget.src = getAvatarFallback(user.fullName)
+                  }}
+                  className="w-5 h-5 rounded-full object-cover border border-slate-200"
+                />
+              ) : (
+                <UserIcon className="w-4 h-4" />
+              )}
+              <span className="hidden sm:inline">{user?.fullName?.split(' ')[0] || 'Profile'}</span>
             </Link>
-          </li>
-
-          {
-            (isLoggedIn)
-              ? <li className='text-black hover:text-gray-600 transition'>
-                  <Link to={"/profile"}>
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                  </Link>
-                </li>
-              : <li className='text-black hover:text-gray-600 transition'>
-                  <Link to={"/auth"}>
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                    </svg>
-                  </Link>
-                </li>
-          }
-        </ul>
+          ) : (
+            <Link
+              to="/auth"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-medium bg-[#008080] text-white hover:bg-[#006666] transition"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Sign In</span>
+            </Link>
+          )}
+        </nav>
       </div>
-    </nav>
+    </header>
   )
 }
