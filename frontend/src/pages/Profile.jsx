@@ -1,9 +1,15 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Edit3, LogOut, Trash2, X, Heart, MessageCircle } from 'lucide-react'
+import { Edit3, LogOut, Trash2, X, Heart, MessageCircle, Check } from 'lucide-react'
 import api, { formatRelativeTime, getApiError, getAvatarFallback } from '../api/client.js'
 
-export default function Profile({ isLoggedIn, currentUser, setCurrentUser, onLogout }) {
+export default function Profile({
+  isLoggedIn,
+  currentUser,
+  setCurrentUser,
+  onLogout,
+  showToast,
+}) {
   const navigate = useNavigate()
   const { id } = useParams()
 
@@ -16,7 +22,20 @@ export default function Profile({ isLoggedIn, currentUser, setCurrentUser, onLog
   const [isPosting, setIsPosting] = useState(false)
   const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [selectedPost, setSelectedPost] = useState(null)
+  const [isEditingPost, setIsEditingPost] = useState(false)
+  const [newPostImage, setNewPostImage] = useState('')
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setSelectedPost(null)
+        setIsEditingPost(false)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
 
   useEffect(() => {
     if (!id && !isLoggedIn) {
@@ -60,7 +79,7 @@ export default function Profile({ isLoggedIn, currentUser, setCurrentUser, onLog
     const data = {
       title: form.title.value.trim(),
       description: form.description.value.trim(),
-      image: form.image.value.trim(),
+      image: newPostImage.trim(),
     }
 
     try {
@@ -70,6 +89,8 @@ export default function Profile({ isLoggedIn, currentUser, setCurrentUser, onLog
         prev ? { ...prev, posts_count: (prev.posts_count || 0) + 1 } : prev
       )
       form.reset()
+      setNewPostImage('')
+      showToast?.('Post published')
     } catch (err) {
       setError(getApiError(err, 'Failed to create post.'))
     } finally {
@@ -93,8 +114,30 @@ export default function Profile({ isLoggedIn, currentUser, setCurrentUser, onLog
       setCurrentUser(res.data)
       localStorage.setItem('user', JSON.stringify(res.data))
       setIsEditingProfile(false)
+      showToast?.('Profile updated')
     } catch (err) {
       setError(getApiError(err, 'Failed to update profile.'))
+    }
+  }
+
+  async function handlePostUpdate(e) {
+    e.preventDefault()
+    if (!selectedPost) return
+    const form = e.currentTarget
+    const payload = {
+      title: form.title.value.trim(),
+      description: form.description.value.trim(),
+      image: form.image.value.trim(),
+    }
+
+    try {
+      const res = await api.patch(`/api/postApp/posts/${selectedPost.id}`, payload)
+      setUserPosts((prev) => prev.map((p) => (p.id === selectedPost.id ? res.data : p)))
+      setSelectedPost(res.data)
+      setIsEditingPost(false)
+      showToast?.('Post updated')
+    } catch (err) {
+      setError(getApiError(err, 'Failed to update post.'))
     }
   }
 
@@ -105,7 +148,11 @@ export default function Profile({ isLoggedIn, currentUser, setCurrentUser, onLog
       setProfileUser((prev) =>
         prev ? { ...prev, posts_count: Math.max(0, (prev.posts_count || 1) - 1) } : prev
       )
-      if (selectedPost?.id === postId) setSelectedPost(null)
+      if (selectedPost?.id === postId) {
+        setSelectedPost(null)
+        setIsEditingPost(false)
+      }
+      showToast?.('Post deleted')
     } catch (err) {
       setError(getApiError(err, 'Failed to delete post.'))
     }
@@ -148,7 +195,7 @@ export default function Profile({ isLoggedIn, currentUser, setCurrentUser, onLog
 
       {/* Profile Header */}
       {profileUser && (
-        <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
+        <section className="animate-fade-up bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
           <div className="flex flex-col sm:flex-row sm:items-center gap-6">
             <img
               src={profileUser.avatar || getAvatarFallback(profileUser.fullName)}
@@ -192,11 +239,15 @@ export default function Profile({ isLoggedIn, currentUser, setCurrentUser, onLog
 
               <div className="flex items-center gap-6 mt-4 pt-4 border-t border-slate-100 text-sm">
                 <div>
-                  <span className="font-semibold text-slate-900">{profileUser.posts_count ?? userPosts.length}</span>{' '}
+                  <span className="font-semibold text-slate-900">
+                    {profileUser.posts_count ?? userPosts.length}
+                  </span>{' '}
                   <span className="text-slate-500">Posts</span>
                 </div>
                 <div>
-                  <span className="font-semibold text-slate-900">{profileUser.likes_received ?? 0}</span>{' '}
+                  <span className="font-semibold text-slate-900">
+                    {profileUser.likes_received ?? 0}
+                  </span>{' '}
                   <span className="text-slate-500">Likes Received</span>
                 </div>
               </div>
@@ -206,7 +257,7 @@ export default function Profile({ isLoggedIn, currentUser, setCurrentUser, onLog
           {isOwnProfile && isEditingProfile && (
             <form
               onSubmit={handleProfileUpdate}
-              className="mt-6 pt-6 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-4"
+              className="mt-6 pt-6 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fade-up"
             >
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1">Full Name</label>
@@ -281,13 +332,28 @@ export default function Profile({ isLoggedIn, currentUser, setCurrentUser, onLog
             <input
               name="image"
               type="url"
+              value={newPostImage}
+              onChange={(e) => setNewPostImage(e.target.value)}
               placeholder="Image URL (optional)"
               className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-lg outline-none focus:border-[#008080]"
             />
 
+            {newPostImage.trim() && (
+              <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
+                <img
+                  src={newPostImage}
+                  alt="Preview"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none'
+                  }}
+                  className="w-full max-h-48 object-cover"
+                />
+              </div>
+            )}
+
             <button
               disabled={isPosting}
-              className="w-full py-2.5 rounded-lg bg-[#008080] text-white text-sm font-semibold hover:bg-[#006666] transition disabled:opacity-50"
+              className="w-full py-2.5 rounded-lg bg-[#008080] text-white text-sm font-semibold hover:bg-[#006666] active:scale-[0.99] transition disabled:opacity-50"
             >
               {isPosting ? 'Sharing...' : 'Share Post'}
             </button>
@@ -306,8 +372,19 @@ export default function Profile({ isLoggedIn, currentUser, setCurrentUser, onLog
             {userPosts.map((post) => (
               <div
                 key={post.id}
-                onClick={() => setSelectedPost(post)}
-                className="group cursor-pointer bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs hover:shadow-md transition"
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  setSelectedPost(post)
+                  setIsEditingPost(false)
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    setSelectedPost(post)
+                    setIsEditingPost(false)
+                  }
+                }}
+                className="group cursor-pointer bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs hover:shadow-md hover:-translate-y-0.5 transition duration-200"
               >
                 {post.image ? (
                   <div className="aspect-square bg-slate-100 overflow-hidden">
@@ -322,7 +399,9 @@ export default function Profile({ isLoggedIn, currentUser, setCurrentUser, onLog
                   </div>
                 ) : (
                   <div className="aspect-square bg-[#F3F6F6] p-4 flex items-center justify-center text-center">
-                    <p className="text-sm font-medium text-slate-700 line-clamp-4">{post.description}</p>
+                    <p className="text-sm font-medium text-slate-700 line-clamp-4">
+                      {post.description}
+                    </p>
                   </div>
                 )}
 
@@ -350,60 +429,129 @@ export default function Profile({ isLoggedIn, currentUser, setCurrentUser, onLog
         )}
       </section>
 
-      {/* Post Detail Modal */}
+      {/* Post Detail & Edit Modal */}
       {selectedPost && (
         <div
           className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4"
-          onClick={() => setSelectedPost(null)}
+          onClick={() => {
+            setSelectedPost(null)
+            setIsEditingPost(false)
+          }}
         >
           <div
-            className="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-xl border border-slate-200"
+            className="animate-modal-in bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-xl border border-slate-200"
             onClick={(e) => e.stopPropagation()}
           >
-            {selectedPost.image && (
+            {selectedPost.image && !isEditingPost && (
               <img
                 src={selectedPost.image}
                 alt={selectedPost.title}
                 className="w-full max-h-80 object-cover bg-slate-100"
               />
             )}
+
             <div className="p-6">
-              <div className="flex items-start justify-between gap-4 mb-2">
-                <h3 className="text-xl font-semibold text-slate-900">{selectedPost.title}</h3>
-                <button
-                  type="button"
-                  onClick={() => setSelectedPost(null)}
-                  className="text-slate-400 hover:text-slate-700 p-1"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <p className="text-xs text-slate-400 mb-3">
-                {formatRelativeTime(selectedPost.created_at)}
-              </p>
-              <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line mb-5">
-                {selectedPost.description}
-              </p>
-              <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-                <div className="flex items-center gap-4 text-sm text-slate-500">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Heart className="w-4 h-4" /> {selectedPost.likes_count || 0} Likes
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <MessageCircle className="w-4 h-4" /> {selectedPost.comments_count || 0} Comments
-                  </span>
-                </div>
-                {isOwnProfile && (
-                  <button
-                    type="button"
-                    onClick={() => handleDeletePost(selectedPost.id)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-rose-600 hover:bg-rose-50 transition"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    <span>Delete</span>
-                  </button>
-                )}
-              </div>
+              {isEditingPost ? (
+                <form onSubmit={handlePostUpdate} className="space-y-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="text-base font-semibold text-slate-900">Edit Post</h3>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingPost(false)}
+                      className="text-slate-400 hover:text-slate-700 p-1"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <input
+                    name="title"
+                    type="text"
+                    defaultValue={selectedPost.title}
+                    required
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg outline-none focus:border-[#008080]"
+                  />
+                  <textarea
+                    name="description"
+                    rows="3"
+                    defaultValue={selectedPost.description}
+                    required
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg outline-none focus:border-[#008080] resize-none"
+                  />
+                  <input
+                    name="image"
+                    type="url"
+                    defaultValue={selectedPost.image}
+                    placeholder="Image URL (optional)"
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg outline-none focus:border-[#008080]"
+                  />
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingPost(false)}
+                      className="px-3.5 py-2 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#008080] text-white text-sm font-medium hover:bg-[#006666]"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>Save</span>
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <>
+                  <div className="flex items-start justify-between gap-4 mb-2">
+                    <h3 className="text-xl font-semibold text-slate-900">{selectedPost.title}</h3>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPost(null)}
+                      className="text-slate-400 hover:text-slate-700 p-1"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-400 mb-3">
+                    {formatRelativeTime(selectedPost.created_at)}
+                  </p>
+                  <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line mb-5">
+                    {selectedPost.description}
+                  </p>
+                  <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                    <div className="flex items-center gap-4 text-sm text-slate-500">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Heart className="w-4 h-4" /> {selectedPost.likes_count || 0} Likes
+                      </span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <MessageCircle className="w-4 h-4" /> {selectedPost.comments_count || 0}{' '}
+                        Comments
+                      </span>
+                    </div>
+                    {isOwnProfile && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingPost(true)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 transition"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeletePost(selectedPost.id)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-rose-600 hover:bg-rose-50 transition"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          <span>Delete</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
